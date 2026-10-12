@@ -1,0 +1,36 @@
+{
+  "mcpServers": {
+    "zotero-local": {
+      "command": "node",
+      "args": ["${ZOTERO_MCP_PATH}/dist/index.js"],
+      "env": {
+        "ZOTERO_MODE": "local",
+        "ZOTERO_DATA_DIR": "${ZOTERO_DATA_DIR}"
+      },
+      "disabled": false,
+      "_comment": "ZOTERO_DATA_DIR = your local Zotero storage (~/Zotero by default). ZOTERO_MCP_PATH = ~/.workbuddy/mcp-servers/zotero-mcp"
+    },
+    "zotero": {
+      "command": "node",
+      "args": ["${ZOTERO_MCP_PATH}/dist/index.js"],
+      "env": {
+        "ZOTERO_MODE": "web",
+        "ZOTERO_USER_ID": "YOUR_ZOTERO_USER_ID",
+        "ZOTERO_API_KEY": "YOUR_ZOTERO_API_KEY"
+      },
+      "disabled": false,
+      "_comment": "Zotero Web API — find your credentials at zotero.org/settings/keys"
+    },
+    "consensus": {
+      "url": "https://mcp.consensus.app/mcp",
+      "disabled": false,
+      "_comment": "Consensus AI academic search — no auth needed for MCP stream; the Python scripts use ~/.workbuddy/consensus_auth.json (api_key)"
+    },
+    "folio": {
+      "command": "node",
+      "args": ["${FOLIO_DIR}/server/mcp.js"],
+      "disabled": false,
+      "_comment": "Folio 文献工作台 MCP bridge. FOLIO_DIR = where you cloned the app (~/Folio/文献工作台 or wherever). Data lives at ${FOLIO_DIR}/data/folio.json."
+    }
+  }
+}

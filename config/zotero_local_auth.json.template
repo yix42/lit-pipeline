@@ -1,0 +1,9 @@
+{
+  "_note": "Local Zotero HTTP API auth. base_url points at the running Zotero desktop server (default http://localhost:23119). Copy to ~/.workbuddy/zotero_local_auth.json and fill real values.",
+  "base_url": "http://localhost:23119",
+  "user_id": "0",
+  "server_id": "",
+  "api_key": "YOUR_LOCAL_ZOTERO_API_KEY",
+  "auth_source": "local",
+  "usage": "zotero-local skill (zotero_api.py) reads this for local Zotero reads/writes"
+}

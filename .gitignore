@@ -1,0 +1,34 @@
+# --- Secrets / local-only auth (keep the .template placeholders, exclude real keys) ---
+consensus_auth.json
+zotero_local_auth.json
+folio.json
+folio/data/
+
+# --- Large user data & third-party vendored libs ---
+*/vendor/
+*.zip
+
+# --- Python noise ---
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# --- Skill loader stray temp files (.SKILL.md.<hash>) ---
+.SKILL.md.*
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+*.swp
+._*            # macOS AppleDouble / resource fork (copied from Finder-synced dirs)
+.*.[0-9A-Za-z] # sync/loader temp copies like .http.js.Hpc5qYkj3V, ._cards_l2.js.RLKHbaVmSy
+
+# --- Local run artifacts (reports, RIS dumps, temp screenshots) ---
+lit_fusion_report.md
+lit_fusion_combined.ris
+_review/
+_shots/
+_snapshots/
