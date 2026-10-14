@@ -74,6 +74,9 @@ def main():
         route = (d.get("fulltext_route", "") or "").split("#")[0].strip()
         if route not in ("none", "manual"):
             continue                       # oa_pdf / epmc_xml 等自动通道的仍在处理中
+        # manual 通道但 PDF 已落 40_Fulltext/pdf 的 = 已取到，不列入取件清单
+        if route == "manual" and os.path.exists(os.path.join(VAULT, "40_Fulltext/pdf", key + ".pdf")):
+            continue
         title = d.get("title", "")
         full = title
         if looks_truncated(title) or len(title) < 60:

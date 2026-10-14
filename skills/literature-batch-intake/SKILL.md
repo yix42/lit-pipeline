@@ -768,10 +768,25 @@ grep -o -m1 -E '<题名前 20 字符>[^.]{0,120}' <KEY>.md   # 题名锚点
 跑法（`90_Meta/State/verify_note_quotes.py`，随本技能分发）：
 
 ```bash
-python verify_note_quotes.py                # 全库
-python verify_note_quotes.py <key> ...      # 指定篇
-python verify_note_quotes.py --diagnose <key>   # 逐条归因（定性用，见下）
+python verify_note_quotes.py                     # 全库
+python verify_note_quotes.py <key> ...           # 指定篇
+python verify_note_quotes.py --diagnose <key>    # 逐条归因（定性用，见下）
 ```
+
+**机器可读模式**（供 Folio 文献工作台 `server/vault.js` 调用；判定引擎与上面**完全同一套**，只是换个出口）：
+
+```bash
+python verify_note_quotes.py --json                                  # 全库 / 指定 key → JSON
+python verify_note_quotes.py <key> --json                            # 单篇 → JSON
+python verify_note_quotes.py --quotes-file F --json                  # 任意引语列表（Folio 卡片）
+python verify_note_quotes.py --quotes-file F --corpus-dir D --json   # 以 D 为语料（Folio 自己的正文）
+python verify_note_quotes.py --coverage-file F --json                # 覆盖度：笔记应有引语 vs 已进 Folio
+python verify_note_quotes.py --report-dir D                          # 核验并落一份可归档报告到 D
+python verify_note_quotes.py --json --report-dir D                   # 同时出 JSON 与报告
+```
+
+★ **所有 JSON 模式一律 `exit 0`**，失败写进 `{"ok": false, "error": ...}` —— 非零退出会被调用方读成「脚本崩了」。
+★ **写盘只有一个入口**：显式传 `--report-dir` 时写 `D/引语闸门_<日期>.md`；**其余一律只读**。
 
 三层判：**严格命中 / 仅连字符差异 / 未命中**。
 归一化链：HTML 反实体 → NFKC（连字）→ 标点统一（`’`→`'`、`–—−`→`-`）→ 去全部空白 → 去 markdown 强调。
@@ -823,20 +838,36 @@ else:             verdict = "混合：档案侧插入 + 笔记侧差异"
 
 #### 转录修复（`repair_note_quotes.py`，随本技能分发）
 
-**这不是「反向生成引语」。** 前提极窄，三条同时满足才动手：
-
-1. 该引语在核验里是**未命中**；
-2. 两侧压成**只含字母数字**的串后，笔记串**能在档案里逐字找到**
-   ⇒ 差异**只在** `± − – ／` 空格 标点 这类字符上，**未增删任何一个词**；
-3. 引语**不含省略号**（`…` / `...`）——省略号引语是多段拼接，不能机械替换。
+**三段式铁律：诊断 → 逐条确认 → 才落笔。不许「一键全修」。**
 
 ```bash
-python repair_note_quotes.py <key> ...            # 只报告
-python repair_note_quotes.py --apply <key> ...    # 落盘（留 _quote_repair_log.json）
+python repair_note_quotes.py --json <key> ...       # ① 诊断（只读，绝不改文件）
+# ② 逐条确认 fixable[].id
+python repair_note_quotes.py --apply-ids ids.json   # ③ 落笔（ids.json = {"ids": [...]}，追加 _quote_repair_log.json）
 ```
 
-典型用途：把笔记里被吞掉字形的 `1.56 0.47 mV` 还原成档案原样 `1.56 ± 0.47 mV`（语义一字未改）。
-**不满足三条的残余，直接标「须人工」，不要连试。**
+**只放行两类**（`unsafe_change_reason()` 的准入闸门，其余一律归人工）：
+
+1. **引号字形还原** —— `'flags'` → `"flags"`（非空白字符全是引号类，语义不动）；
+2. **补回良构 ±** —— **不删**任何非空白字符，新增的非空白字符**全是 `±`**，
+   且每个 `±` 都落在 `\d\s*±\s*[\d(]` 语境。
+
+**确认环节看 `id`，不看序号**：`id = sha1(key + "|" + 原文引语)[:12]`，**与顺序无关**。
+落笔时**重新诊断一遍**，过期 id 原样报 `missing`，不猜。
+
+★★ **判据前提：档案侧字符不可信。** `40_Fulltext/md/` 里由 C0 字形还原生成的档案，
+**一个 `±` 同时编码四种真值** —— 真 ±（`52±10 years`）、`<`（`P ± .05`、`r ± 0.85`）、
+`≈`（`±5 seconds`）、脚注 `†`（`Taiwan, ±Second Department`）。
+同类还有**软连字符 U+00AD**（`per\u00adformed`，`normalize()` **不剥它**）与 **markdown 记号**（`_h_`）。
+⇒ **档案缺而笔记有的字符，说明残缺的是档案。** 照档案改就是**把对的改成错的**。
+
+**落笔前把笔记整份快照到库外** `~/ResearchVault_backups/<日期>_quote_repair/`
+（库内出现备份目录是校验器 WARN 的错，也会在 Obsidian 里变成重复笔记）。
+**验完要两条证据**：威力（`miss` 下降）**和**幂等（第二次同 id → `applied 0`），缺一不可。
+
+典型用途：把笔记里被吞掉字形的 `1.56 0.47 mV` 还原成 `1.56 ± 0.47 mV`（语义一字未改）。
+**不满足两类的残余一律标「须人工」，不要连试。** 实测收敛：第一版诊断报「可自动修 113 条」，
+逐条抽查后发现会把 `~` 改成 `±`、把 `per\u00adformed` 搬进干净笔记 —— 三轮收窄后 **113 → 1**。
 
 ⚠️ **诊断时不要用「手打重现的测试串」**——我曾据此误判笔记把 `additionally conducted` 改成 `performed`、
 把 `Figure 4A` 写成 `Figure 5A`，两处都是我手打串的错，笔记本身是对的。

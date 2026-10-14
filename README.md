@@ -23,8 +23,10 @@ lit-pipeline/
 │  ├─ zotero-fulltext-feasibility/ # ④ 全文 7 值通道判定 + OA/PMC 抓取 + pdf→md
 │  ├─ zotero-journal-metrics/      # ⑤ 期刊指标（ISSN→Crossref→JCR/IF）三级匹配
 │  ├─ zotero-mcp-connector/        # ⑥ zotero-mcp node 服务说明
-│  ├─ research-vault-pipeline/     # ⑦ Obsidian vault 四层 L0–L4 手册 + 校验器口径 + 引语闸门
+│  ├─ research-vault-pipeline/     # ⑦ Obsidian vault 四层 L0–L4 手册 + 校验器口径 + L3 硬闸
+│  │  └─ scripts/gate_l3.py        #    落 <vault>/90_Meta/Schema/（按 __file__ 找同级 State/）
 │  └─ literature-batch-intake/     # ⑧ 批量入库脚本 + verify_note_quotes 引语闸门（唯一真源）
+│     └─ scripts/*.py              #    落 <vault>/90_Meta/State/
 │
 ├─ folio/                          # Folio 文献工作台「接入口」（不含 app 主体 / data / vendor）
 │  ├─ server/                       # MCP + HTTP 服务层（mcp.js / http.js / store.js / tools.js / vault.js / locate.js）
@@ -57,6 +59,14 @@ lit-pipeline/
    - MinerU 4.x（可选，默认 PDF→md 引擎）：`pip install mineru`（受管 venv）。
    - Node：`node`（Zotero MCP + Folio 服务）。
 4. **装 skill**：把 `skills/` 下各目录拷到 `~/.workbuddy/skills/`（或项目级 `<proj>/.workbuddy/skills/`）。
+   其中两个 skill 带 `scripts/`，**这些脚本要落进 vault 才跑得起来**（脚本按所在目录定位数据）：
+
+   | 仓库路径 | 落到 vault |
+   |---|---|
+   | `skills/literature-batch-intake/scripts/*.py` | `<vault>/90_Meta/State/` |
+   | `skills/research-vault-pipeline/scripts/gate_l3.py` | `<vault>/90_Meta/Schema/` |
+
+   ⚠️ `gate_l3.py` 用 `__file__` 找**同级**的 `State/` —— 放错目录会 `ImportError`。
 5. **跑一次检索验证**：
    ```bash
    python3 skills/lit-fusion/scripts/fusion.py "omnipolar voltage mapping atrial fibrillation" \
@@ -75,7 +85,7 @@ lit-pipeline/
 | ① 检索 | `lit-fusion` | `fusion.py <query>` → Consensus 优先，回填 PubMed，出报告 + 合并 RIS |
 | ② 入 Zotero | `zotero-import` | `zotero_import.py --collection <集> --ris <文件>`（或 `--pmids`） |
 | ③ 全文/可取性 | `zotero-fulltext-feasibility` | `fetch_fulltext.py` 判 7 值通道；能取就一路做到底 |
-| ④ 建卡进 Obsidian | `research-vault-pipeline` + `literature-batch-intake` | 落 L1/L2，`verify_note_quotes.py --json` 引语闸门，`validate_vault.py` 校验 |
+| ④ 建卡进 Obsidian | `research-vault-pipeline` + `literature-batch-intake` | 落 L1/L2，`verify_note_quotes.py --json` 引语闸门，`validate_vault.py` 校验，`gate_l3.py` 硬闸（未过不得进 L3） |
 | ⑤ 指标 | `zotero-journal-metrics` | ISSN→刊名→Crossref 三级匹配回写 IF/JCR |
 | ⑥ 进 Folio | `folio/`（MCP/HTTP） | `_ingest_paper.js` / `_pdf2folio.js` / `_cards_pdf.js` 喂给 `data/folio.json` |
 
@@ -92,3 +102,22 @@ lit-pipeline/
 - 运行噪声：`__pycache__/`、`.DS_Store`、临时报告 `lit_fusion_*.md/.ris`、`_review/ _shots/ _snapshots/`。
 
 > 首次在本机跑通后，如需把这些 skill 也用起来：直接拷进 `~/.workbuddy/skills/`。仓库里的副本是「可移植母本」。
+
+### 同步纪律（★ 别让仓库悄悄落后）
+
+同一批脚本存在**三处**，互不联动：
+**vault 真源**（`<vault>/90_Meta/{State,Schema}/`）→ **本机 skill 副本**（`~/.workbuddy/skills/*/scripts/`）→ **本仓库**。
+**一处新 ≠ 三处新。** 判「某某是不是最新的」必须逐文件 `md5` 对三处，别靠印象。
+
+同步**不许直接 `cp`**：仓库副本是**刻意可移植化**的 —— 真源硬编码 `/Users/macintosh/ResearchVault`，
+仓库里一律是
+
+```python
+VAULT = os.environ.get("RESEARCH_VAULT", os.path.expanduser("~/ResearchVault"))
+```
+
+⇒ **同步 = 拷真源 + 重做这一处替换。** 落地前自查：**脚本（`*.py`）里不许出现 `/Users/macintosh`**。
+（`gate_l3.py` 无需替换——它按 `__file__` 定位；`repair_note_quotes.py` 也无需——它写的是 `VAULT = V.VAULT` 继承自 `verify_note_quotes`。）
+
+> 已知遗留：`skills/zotero-mcp-connector/SKILL.md` 与 `skills/literature-batch-intake/SKILL.md` 的**示例命令**里
+> 仍有本机绝对路径（`/Users/macintosh/.workbuddy/binaries/node/...` 等）。那是「换机按 §二 替换占位符」的范畴，不影响脚本运行。

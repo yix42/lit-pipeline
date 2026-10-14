@@ -93,14 +93,31 @@ python3 skills/zotero-fulltext-feasibility/scripts/fetch_fulltext.py <key_or_pmc
 
 ```bash
 cd $VAULT/90_Meta/State
-RESEARCH_VAULT=$VAULT python3 verify_note_quotes.py --json          # 全库引语闸门
+RESEARCH_VAULT=$VAULT python3 verify_note_quotes.py --json          # 全库引语闸门（strict/loose/miss）
 RESEARCH_VAULT=$VAULT python3 verify_note_quotes.py --json <KEY>    # 单篇
-python3 $VAULT/90_Meta/Schema/validate_schema.py   # L3 + 模板
-python3 $VAULT/90_Meta/Schema/validate_vault.py    # L0+L1+L2+L3+L4+双链+残留
+RESEARCH_VAULT=$VAULT python3 repair_note_quotes.py --json          # ① 诊断可修项（只读，绝不改文件）
+#   ② 逐条确认 fixable[].id   →   ③ 才落笔：
+#   RESEARCH_VAULT=$VAULT python3 repair_note_quotes.py --apply-ids ids.json
+
+cd $VAULT/90_Meta/Schema
+python3 gate_l3.py                 # ★ L3 硬闸：0 = 全过；1 = 有来源未过 ⇒ 不许动 30_Knowledge/
+python3 gate_l3.py --key <KEY>     # 单篇：五态判定 + 列出 citedBy（哪些 L3 页引用了它）
+python3 validate_schema.py         # L3 + 模板
+python3 validate_vault.py          # L0+L1+L2+L3+L4+双链+残留
 ```
 
 **L1 索引用脚本生成，不手抄**：`gen_l1_index.py`。
-**索引表 / 引语闸门 / L3 硬闸（`gate_l3.py`）未过不得进 L3。**
+
+★★ **顺序是硬的：先过闸门，再谈来源数够不够。** 硬闸按来源判**五态**
+`PASS / REPAIRABLE / FAIL / NO-FULLTEXT / NO-NOTE` —— `REPAIRABLE` 也算**未过**（「可能可修」＝「现在还没过」）。
+**闸门红了就是不准改 L3 页**，先回去把来源那一侧弄干净：可修的走上面那三段式，剩下的回 L2 逐条核。
+`--json` 模式的退出码也照规矩（0/1），因为**它是闸，不是查询接口**。
+
+⚠️ **硬闸刻意不并进 `validate_vault.py`** —— 后者的 WARN 计数是健康信号（存量多是大 PDF），
+塞一项天天红的检查会把信号淹掉。闸门必须单义。
+
+⚠️ **脚本装在哪**：`skills/literature-batch-intake/scripts/*.py` → `<vault>/90_Meta/State/`；
+`skills/research-vault-pipeline/scripts/gate_l3.py` → `<vault>/90_Meta/Schema/`（它按 `__file__` 找同级 `State/`）。
 
 ---
 
